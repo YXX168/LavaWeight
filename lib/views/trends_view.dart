@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/weight_record.dart';
 import '../services/storage_service.dart';
@@ -339,8 +339,8 @@ class _TrendsViewState extends State<TrendsView> {
   }
 
   Widget _buildHistoryItem(WeightRecord record) {
-    final dateStr = DateFormat('MM月dd日 EEEE · HH:mm', 'zh_CN')
-        .format(record.recordedAt);
+    final dateStr =
+        DateFormat('MM月dd日 EEEE · HH:mm', 'zh_CN').format(record.recordedAt);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -358,7 +358,8 @@ class _TrendsViewState extends State<TrendsView> {
             children: [
               Text(
                 dateStr,
-                style: const TextStyle(color: LavaTheme.textMuted, fontSize: 12),
+                style:
+                    const TextStyle(color: LavaTheme.textMuted, fontSize: 12),
               ),
               if (record.note != null && record.note!.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -407,8 +408,8 @@ class _TrendsViewState extends State<TrendsView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: LavaTheme.backgroundAubergine,
-        title: const Text('删除记录',
-            style: TextStyle(color: LavaTheme.textPrimary)),
+        title:
+            const Text('删除记录', style: TextStyle(color: LavaTheme.textPrimary)),
         content: Text(
           '确定删除 ${record.weightKg.toStringAsFixed(1)} kg 的这条记录吗？',
           style: const TextStyle(color: LavaTheme.textSecondary),

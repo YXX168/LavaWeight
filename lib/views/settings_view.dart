@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/bmi_calculator.dart';
 import '../services/storage_service.dart';
@@ -92,8 +92,7 @@ class _SettingsViewState extends State<SettingsView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? '数据恢复成功！' : '备份格式错误，无法导入'),
-          backgroundColor:
-              success ? LavaTheme.success : LavaTheme.lavaPink,
+          backgroundColor: success ? LavaTheme.success : LavaTheme.lavaPink,
         ),
       );
     }
