@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/lava_theme.dart';
 
 class LavaRuler extends StatefulWidget {
@@ -7,245 +8,137 @@ class LavaRuler extends StatefulWidget {
   final double minWeight;
   final double maxWeight;
   final bool useJin;
-
   const LavaRuler({
     super.key,
     required this.currentWeight,
     required this.onWeightChanged,
-    this.minWeight = 30.0,
-    this.maxWeight = 180.0,
+    this.minWeight = 20,
+    this.maxWeight = 300,
     this.useJin = false,
   });
-
   @override
   State<LavaRuler> createState() => _LavaRulerState();
 }
 
 class _LavaRulerState extends State<LavaRuler> {
-  late ScrollController _scrollController;
-  static const double _tickWidth = 10.0; // pixels per 0.1 kg
-  bool _isUserScrolling = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToWeight(widget.currentWeight, animate: false);
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant LavaRuler oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentWeight != widget.currentWeight && !_isUserScrolling) {
-      _scrollToWeight(widget.currentWeight, animate: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _scrollToWeight(double weight, {bool animate = true}) {
-    if (!_scrollController.hasClients) return;
-    final totalTicks = ((weight - widget.minWeight) * 10).round();
-    final targetOffset = totalTicks * _tickWidth;
-    if (animate) {
-      _scrollController.animateTo(
-        targetOffset,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _scrollController.jumpTo(targetOffset);
-    }
-  }
-
-  void _onScroll() {
-    if (!_isUserScrolling) return;
-    final offset = _scrollController.offset;
-    final ticks = (offset / _tickWidth).round();
-    final weight = widget.minWeight + (ticks / 10.0);
-    final clamped = weight.clamp(widget.minWeight, widget.maxWeight);
-    final rounded = double.parse(clamped.toStringAsFixed(1));
+  double _origin = 0;
+  double _travel = 0;
+  void _change(double value) {
+    final rounded = double.parse(
+      value.clamp(widget.minWeight, widget.maxWeight).toStringAsFixed(1),
+    );
     if (rounded != widget.currentWeight) {
+      HapticFeedback.selectionClick();
       widget.onWeightChanged(rounded);
     }
   }
 
-  void _step(double delta) {
-    final next = (widget.currentWeight + delta)
-        .clamp(widget.minWeight, widget.maxWeight);
-    final rounded = double.parse(next.toStringAsFixed(1));
-    widget.onWeightChanged(rounded);
-    _scrollToWeight(rounded, animate: true);
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Semantics(
+        label: '体重刻度尺',
+        value:
+            '${(widget.currentWeight * (widget.useJin ? 2 : 1)).toStringAsFixed(1)}'
+            '${widget.useJin ? '斤' : '公斤'}',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (_) {
+            _origin = widget.currentWeight;
+            _travel = 0;
+          },
+          onHorizontalDragUpdate: (d) {
+            _travel += d.delta.dx;
+            _change(_origin - _travel / 140);
+          },
+          child: SizedBox(
+            height: 85,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _RulerPainter(widget.currentWeight, widget.useJin),
+            ),
+          ),
+        ),
+      ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            tooltip: '减少体重',
+            onPressed: () => _change(widget.currentWeight - 0.1),
+            icon: const Icon(Icons.remove, size: 20),
+          ),
+          Text(
+            widget.useJin ? '滑动微调 · 每格 0.2 斤' : '滑动微调 · 每格 0.1 kg',
+            style: const TextStyle(
+              fontSize: 11,
+              color: LavaTheme.textSecondary,
+            ),
+          ),
+          IconButton(
+            tooltip: '增加体重',
+            onPressed: () => _change(widget.currentWeight + 0.1),
+            icon: const Icon(Icons.add, size: 20),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+class _RulerPainter extends CustomPainter {
+  final double weight;
+  final bool jin;
+  _RulerPainter(this.weight, this.jin);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.width / 2;
+    final tick = (weight * 10).round();
+    final count = (size.width / 28).ceil() + 1;
+    for (var i = -count; i <= count; i++) {
+      final value = tick + i;
+      if (value < 200 || value > 3000) continue;
+      final x = center + i * 14.0;
+      final major = value % 10 == 0;
+      final length = major
+          ? 33.0
+          : value % 5 == 0
+          ? 25.0
+          : 17.0;
+      canvas.drawLine(
+        Offset(x, 40 - length),
+        Offset(x, 40),
+        Paint()
+          ..color = const Color(0x779F8BA8)
+          ..strokeWidth = 1,
+      );
+      if (major) {
+        final text = TextPainter(
+          text: TextSpan(
+            text: (value / 10 * (jin ? 2 : 1)).toStringAsFixed(0),
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              color: LavaTheme.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        text.paint(canvas, Offset(x - text.width / 2, 54));
+      }
+    }
+    canvas.drawLine(
+      Offset(center, 0),
+      Offset(center, 44),
+      Paint()
+        ..color = LavaTheme.lavaPink
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final totalTicks = ((widget.maxWeight - widget.minWeight) * 10).round();
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Stepper buttons & Ruler Container
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            children: [
-              // Minus 0.1 button
-              _buildStepButton(
-                icon: Icons.remove,
-                onTap: () => _step(-0.1),
-              ),
-              const SizedBox(width: 8),
-
-              // Horizontal Ruler Area
-              Expanded(
-                child: SizedBox(
-                  height: 80,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final halfWidth = constraints.maxWidth / 2;
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Ruler ScrollView
-                          NotificationListener<ScrollNotification>(
-                            onNotification: (notification) {
-                              if (notification is ScrollStartNotification) {
-                                _isUserScrolling = true;
-                              } else if (notification
-                                  is ScrollUpdateNotification) {
-                                _onScroll();
-                              } else if (notification
-                                  is ScrollEndNotification) {
-                                _isUserScrolling = false;
-                              }
-                              return true;
-                            },
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              scrollDirection: Axis.horizontal,
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: halfWidth),
-                              itemCount: totalTicks + 1,
-                              physics: const BouncingScrollPhysics(),
-                              itemBuilder: (context, index) {
-                                final isMajor = index % 10 == 0;
-                                final isMedium = index % 5 == 0;
-                                final weightVal =
-                                    widget.minWeight + (index / 10.0);
-
-                                return Container(
-                                  width: _tickWidth,
-                                  alignment: Alignment.bottomCenter,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      if (isMajor)
-                                        Text(
-                                          widget.useJin
-                                              ? (weightVal * 2)
-                                                  .toStringAsFixed(0)
-                                              : weightVal.toStringAsFixed(0),
-                                          style: const TextStyle(
-                                            color: LavaTheme.textMuted,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      const SizedBox(height: 6),
-                                      Container(
-                                        width: isMajor ? 2.0 : 1.0,
-                                        height: isMajor
-                                            ? 28.0
-                                            : (isMedium ? 18.0 : 10.0),
-                                        decoration: BoxDecoration(
-                                          color: isMajor
-                                              ? const Color(0xB3FFFFFF)
-                                              : const Color(0x40FFFFFF),
-                                          borderRadius:
-                                              BorderRadius.circular(1),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-
-                          // Center Glowing Needle Indicator
-                          IgnorePointer(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                // Glowing Pointer Needle
-                                Container(
-                                  width: 3.5,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        LavaTheme.lavaPeach,
-                                        LavaTheme.lavaPink,
-                                      ],
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                    ),
-                                    borderRadius: BorderRadius.circular(2),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: LavaTheme.lavaPink,
-                                        blurRadius: 10,
-                                        spreadRadius: 1,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 8),
-              // Plus 0.1 button
-              _buildStepButton(
-                icon: Icons.add,
-                onTap: () => _step(0.1),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStepButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: LavaTheme.glassFill,
-          borderRadius: BorderRadius.circular(19),
-          border: Border.all(color: LavaTheme.glassBorder, width: 1),
-        ),
-        child: Icon(icon, color: LavaTheme.textSecondary, size: 20),
-      ),
-    );
-  }
+  bool shouldRepaint(covariant _RulerPainter old) =>
+      old.weight != weight || old.jin != jin;
 }

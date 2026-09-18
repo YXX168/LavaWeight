@@ -1,380 +1,325 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/bmi_calculator.dart';
 import '../services/storage_service.dart';
 import '../theme/lava_theme.dart';
+import '../widgets/app_helpers.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/glowing_button.dart';
+import '../widgets/lava_background.dart';
 
 class SettingsView extends StatefulWidget {
   final StorageService storage;
-
   const SettingsView({super.key, required this.storage});
-
   @override
   State<SettingsView> createState() => _SettingsViewState();
 }
 
 class _SettingsViewState extends State<SettingsView> {
-  late TextEditingController _nicknameController;
-  late TextEditingController _heightController;
-  late TextEditingController _targetWeightController;
-  late TextEditingController _initialWeightController;
+  final _form = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _height;
+  late final TextEditingController _target;
+  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    final p = widget.storage.profile;
-    _nicknameController = TextEditingController(text: p.nickname);
-    _heightController =
-        TextEditingController(text: p.heightCm.toStringAsFixed(0));
-    _targetWeightController =
-        TextEditingController(text: p.targetWeightKg.toStringAsFixed(1));
-    _initialWeightController =
-        TextEditingController(text: p.initialWeightKg.toStringAsFixed(1));
+    _name = TextEditingController();
+    _height = TextEditingController();
+    _target = TextEditingController();
+    _refreshFields();
+  }
+
+  void _refreshFields() {
+    final profile = widget.storage.savedProfile;
+    _name.text = profile.nickname;
+    _height.text = profile.heightCm == 0
+        ? ''
+        : profile.heightCm.toStringAsFixed(0);
+    _target.text = profile.targetWeightKg == 0
+        ? ''
+        : profile.targetWeightKg.toStringAsFixed(1);
   }
 
   @override
   void dispose() {
-    _nicknameController.dispose();
-    _heightController.dispose();
-    _targetWeightController.dispose();
-    _initialWeightController.dispose();
+    _name.dispose();
+    _height.dispose();
+    _target.dispose();
     super.dispose();
   }
 
-  void _saveProfile() {
-    final height = double.tryParse(_heightController.text) ?? 175.0;
-    final target = double.tryParse(_targetWeightController.text) ?? 65.0;
-    final initial = double.tryParse(_initialWeightController.text) ?? 72.0;
+  Future<void> _run(Future<void> Function() action, String success) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (mounted) showNotice(context, success);
+    } catch (_) {
+      if (mounted) showNotice(context, '操作未完成，原数据已保留，请重试');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
-    widget.storage.saveProfile(
-      widget.storage.profile.copyWith(
-        nickname: _nicknameController.text.trim(),
-        heightCm: height,
-        targetWeightKg: target,
-        initialWeightKg: initial,
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
+    await _run(
+      () => widget.storage.saveProfile(
+        widget.storage.savedProfile.copyWith(
+          nickname: _name.text.trim(),
+          heightCm: double.tryParse(_height.text.trim()) ?? 0,
+          targetWeightKg: double.tryParse(_target.text.trim()) ?? 0,
+        ),
       ),
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('个人设置已保存'),
-        backgroundColor: LavaTheme.backgroundAubergine,
-      ),
+      '设置已保存',
     );
   }
 
-  void _exportData() {
-    final jsonStr = widget.storage.exportBackupJson();
-    Clipboard.setData(ClipboardData(text: jsonStr));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('备份数据已复制到剪贴板，您可以妥善保存'),
-        backgroundColor: LavaTheme.backgroundAubergine,
-      ),
-    );
-  }
+  Future<void> _export() => _run(() async {
+    final value = widget.storage.exportBackupJson();
+    await Clipboard.setData(ClipboardData(text: value));
+  }, '备份文本已复制，请粘贴到自己的文件中保存');
 
-  Future<void> _importData() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text == null || data!.text!.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板中没有可导入的备份文本')),
-        );
-      }
+  Future<void> _import() async {
+    if (_busy) return;
+    String raw;
+    int count;
+    try {
+      raw = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+      count = StorageService.parseBackup(raw).records.length;
+    } catch (_) {
+      if (mounted) showNotice(context, '剪贴板中没有有效的流光体重备份');
       return;
     }
-
-    final success = widget.storage.importBackupJson(data.text!);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? '数据恢复成功！' : '备份格式错误，无法导入'),
-          backgroundColor: success ? LavaTheme.success : LavaTheme.lavaPink,
-        ),
-      );
+    if (!mounted) return;
+    if (!await confirmAction(
+      context,
+      title: '恢复备份？',
+      message: '将用备份中的 $count 条记录与个人设置替换当前数据。建议先复制一份当前备份。',
+      confirm: '恢复备份',
+    )) {
+      return;
     }
+    await _run(() async {
+      await widget.storage.importBackupJson(raw);
+      _refreshFields();
+    }, '备份已恢复');
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = widget.storage.profile;
-    final (minHealthy, maxHealthy) =
-        BMICalculator.getHealthyWeightRange(profile.heightCm);
-
-    return Stack(
-      children: [
-        // Dark background
-        Positioned.fill(
-          child: Container(
-            color: LavaTheme.background,
-          ),
-        ),
-
-        // Radial ambient glow
-        Positioned(
-          top: -100,
-          right: -100,
-          width: 320,
-          height: 320,
-          child: Container(
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [Color(0x33FF2A85), Colors.transparent],
+    final storage = widget.storage;
+    return PageBackdrop(
+      image: 'trends',
+      motion: storage.profile.motionEnabled,
+      child: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 130),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '我的',
+                style: TextStyle(fontSize: 25, fontWeight: FontWeight.w600),
               ),
-            ),
-          ),
-        ),
-
-        SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '个人与设置',
-                  style: TextStyle(
-                    color: LavaTheme.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  '量身定制您的体重管理目标',
-                  style: TextStyle(
-                    color: LavaTheme.textMuted,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Health Range Card
-                GlassCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0x33FF2A85),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.favorite_outline,
-                          color: LavaTheme.lavaPeach,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '理想健康体重范围',
-                              style: TextStyle(
-                                color: LavaTheme.textSecondary,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '$minHealthy ~ $maxHealthy kg',
-                              style: const TextStyle(
-                                color: LavaTheme.textPrimary,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '基于身高 ${profile.heightCm.toStringAsFixed(0)} cm 测算 (BMI 18.5 ~ 23.9)',
-                              style: const TextStyle(
-                                color: LavaTheme.textMuted,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Profile Fields Card
-                GlassCard(
-                  padding: const EdgeInsets.all(18),
+              const SizedBox(height: 8),
+              const Text(
+                '给自己留一点光',
+                style: TextStyle(color: LavaTheme.textSecondary),
+              ),
+              const SizedBox(height: 28),
+              GlassCard(
+                child: Form(
+                  key: _form,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '基本目标设置',
-                        style: TextStyle(
-                          color: LavaTheme.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                      const Text('个人目标', style: TextStyle(fontSize: 17)),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _name,
+                        maxLength: 40,
+                        enabled: !_busy,
+                        decoration: const InputDecoration(
+                          labelText: '昵称（选填）',
+                          counterText: '',
                         ),
                       ),
                       const SizedBox(height: 16),
-                      _buildTextField('身高 (cm)', _heightController),
-                      const SizedBox(height: 12),
-                      _buildTextField('目标体重 (kg)', _targetWeightController),
-                      const SizedBox(height: 12),
-                      _buildTextField('初始体重 (kg)', _initialWeightController),
-                      const SizedBox(height: 12),
-                      _buildTextField('昵称', _nicknameController),
-                      const SizedBox(height: 18),
-                      GlowingButton(
-                        label: '保存设置',
-                        onPressed: _saveProfile,
-                        height: 46,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Data Management Card
-                GlassCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '数据与备份',
-                        style: TextStyle(
-                          color: LavaTheme.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: GlowingButton(
-                              label: '备份至剪贴板',
-                              icon: Icons.copy,
-                              onPressed: _exportData,
-                              isSecondary: true,
-                              height: 44,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: GlowingButton(
-                              label: '从剪贴板恢复',
-                              icon: Icons.paste,
-                              onPressed: _importData,
-                              isSecondary: true,
-                              height: 44,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Center(
-                        child: TextButton(
-                          onPressed: () {
-                            widget.storage.seedDemoData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已恢复 18 天演示记录')),
-                            );
-                          },
-                          child: const Text(
-                            '重置为示例演示数据',
-                            style: TextStyle(
-                                color: LavaTheme.lavaPeach, fontSize: 13),
-                          ),
+                      _numberField(_height, '身高（cm，选填）', 50, 250),
+                      const SizedBox(height: 16),
+                      _numberField(_target, '目标体重（kg，选填）', 20, 300),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: GlowingButton(
+                          label: '保存设置',
+                          onPressed: _busy ? null : _save,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                // Privacy Commitment Card
-                const GlassCard(
-                  padding: EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.shield_outlined,
-                              color: LavaTheme.success, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            '隐私与安全承诺',
-                            style: TextStyle(
-                              color: LavaTheme.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'LavaWeight 坚持 100% 本地优先原则。本应用无需注册、无需联网，所有身体指标记录均加密保存在您的手机设备中。',
-                        style: TextStyle(
-                          color: LavaTheme.textMuted,
-                          fontSize: 12,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 80),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextField(String label, TextEditingController controller) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 100,
-          child: Text(
-            label,
-            style:
-                const TextStyle(color: LavaTheme.textSecondary, fontSize: 13),
-          ),
-        ),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: LavaTheme.glassFill,
-              borderRadius: BorderRadius.circular(12),
-              border:
-                  Border.all(color: LavaTheme.glassBorderSubtle, width: 0.8),
-            ),
-            child: TextField(
-              controller: controller,
-              style:
-                  const TextStyle(color: LavaTheme.textPrimary, fontSize: 14),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
               ),
-            ),
+              const SizedBox(height: 18),
+              GlassCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Column(
+                  children: [
+                    SwitchListTile.adaptive(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text('以斤显示', style: TextStyle(fontSize: 15)),
+                      subtitle: const Text(
+                        '1 kg = 2 斤',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: storage.savedProfile.useJin,
+                      onChanged: _busy
+                          ? null
+                          : (value) => _run(
+                              () => storage.saveProfile(
+                                storage.savedProfile.copyWith(useJin: value),
+                              ),
+                              '单位已更新',
+                            ),
+                    ),
+                    const Divider(color: LavaTheme.glassBorderSubtle),
+                    SwitchListTile.adaptive(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text('流光呼吸', style: TextStyle(fontSize: 15)),
+                      subtitle: const Text(
+                        '背景轻缓漂移，跟随系统减少动态效果设置',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: storage.savedProfile.motionEnabled,
+                      onChanged: _busy
+                          ? null
+                          : (value) => _run(
+                              () => storage.saveProfile(
+                                storage.savedProfile.copyWith(
+                                  motionEnabled: value,
+                                ),
+                              ),
+                              '动效设置已更新',
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('数据与备份', style: TextStyle(fontSize: 17)),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '记录仅保存在这台设备的本地数据库。备份为未加密文本，请妥善保管。',
+                      style: TextStyle(
+                        color: LavaTheme.textSecondary,
+                        fontSize: 12,
+                        height: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: GlowingButton(
+                        label: '复制备份文本',
+                        icon: Icons.copy_outlined,
+                        isSecondary: true,
+                        onPressed: _busy ? null : _export,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: GlowingButton(
+                        label: '从剪贴板恢复',
+                        icon: Icons.restore_rounded,
+                        isSecondary: true,
+                        onPressed: _busy ? null : _import,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('体验与关于', style: TextStyle(fontSize: 17)),
+                    const SizedBox(height: 12),
+                    Text(
+                      storage.isDemo
+                          ? '正在展示演示数据，个人记录保持原样。'
+                          : '可预览 18 天示例趋势。演示不会写入个人记录。',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: LavaTheme.textSecondary,
+                        height: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GlowingButton(
+                      label: storage.isDemo ? '退出演示预览' : '预览演示数据',
+                      isSecondary: true,
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              if (storage.isDemo) {
+                                storage.exitDemo();
+                              } else {
+                                storage.showDemo();
+                              }
+                              showNotice(
+                                context,
+                                storage.isDemo ? '已开启演示，可返回今日和趋势查看' : '已回到个人记录',
+                              );
+                            },
+                    ),
+                    const SizedBox(height: 22),
+                    const Text(
+                      '流光体重 · LavaWeight 0.1.0\n开源 · 离线 · 无账号',
+                      style: TextStyle(
+                        color: LavaTheme.textSecondary,
+                        fontSize: 12,
+                        height: 1.7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
+
+  Widget _numberField(
+    TextEditingController controller,
+    String label,
+    double min,
+    double max,
+  ) => TextFormField(
+    controller: controller,
+    enabled: !_busy,
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    decoration: InputDecoration(labelText: label),
+    validator: (raw) {
+      if (raw == null || raw.trim().isEmpty) return null;
+      final value = double.tryParse(raw.trim());
+      if (value == null || !value.isFinite || value < min || value > max) {
+        return '请输入 ${min.toInt()}–${max.toInt()} 之间的数值';
+      }
+      return null;
+    },
+  );
 }

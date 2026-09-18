@@ -1,25 +1,27 @@
 name: lava_weight
-description: A stunning lava-lamp aesthetic Android weight tracking and trend journal app.
+description: A local-first weight journal with luminous lava-lamp glass design.
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.11.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  intl: ^0.20.2
-  shared_preferences: ^2.5.2
+  flutter_localizations:
+    sdk: flutter
+  sqflite: ^2.4.2
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
-
+    - assets/images/home_lava.png
+    - assets/images/trends_lava.png
+    - assets/images/record_lava.png

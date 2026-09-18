@@ -1,58 +1,49 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lava_weight/models/weight_record.dart';
 import 'package:lava_weight/models/user_profile.dart';
+import 'package:lava_weight/models/weight_record.dart';
 
 void main() {
-  group('WeightRecord Model Tests', () {
-    test('toJson and fromJson preserves data accurately', () {
-      final now = DateTime(2026, 9, 18, 8, 30);
-      final record = WeightRecord(
-        id: 'test_123',
-        weightKg: 68.5,
-        recordedAt: now,
-        note: '晨起空腹',
-        mood: 'great',
-      );
-
-      final json = record.toJson();
-      final fromJson = WeightRecord.fromJson(json);
-
-      expect(fromJson.id, 'test_123');
-      expect(fromJson.weightKg, 68.5);
-      expect(fromJson.weightInJin, 137.0);
-      expect(fromJson.recordedAt, now);
-      expect(fromJson.note, '晨起空腹');
-      expect(fromJson.mood, 'great');
-      expect(fromJson, record);
-    });
-
-    test('copyWith works correctly', () {
-      final record = WeightRecord(
-        id: 'test_1',
-        weightKg: 70.0,
-        recordedAt: DateTime(2026, 9, 1),
-      );
-
-      final updated = record.copyWith(weightKg: 68.5, note: '持续减脂');
-      expect(updated.id, 'test_1');
-      expect(updated.weightKg, 68.5);
-      expect(updated.note, '持续减脂');
-    });
+  test('weight preserves kilograms, notes and time across serialization', () {
+    final record = WeightRecord(
+      id: 'one',
+      weightKg: 68.5,
+      recordedAt: DateTime(2025, 9, 1, 8, 30),
+      note: '空腹',
+      mood: 'good',
+    );
+    final restored = WeightRecord.fromJson(record.toJson());
+    expect(restored.weightInJin, 137);
+    expect(restored.note, '空腹');
+    expect(restored.recordedAt, record.recordedAt);
   });
-
-  group('UserProfile Model Tests', () {
-    test('default values and serialization', () {
-      const profile = UserProfile();
-      expect(profile.targetWeightKg, 65.0);
-      expect(profile.initialWeightKg, 72.0);
-      expect(profile.heightCm, 175.0);
-
-      final json = profile.toJson();
-      final fromJson = UserProfile.fromJson(json);
-
-      expect(fromJson.targetWeightKg, 65.0);
-      expect(fromJson.heightCm, 175.0);
-      expect(fromJson.nickname, '探索者');
-    });
+  test('rejects non-finite and invalid profile/weight inputs', () {
+    expect(
+      () => const UserProfile(heightCm: double.nan).validate(),
+      throwsFormatException,
+    );
+    expect(
+      () => const UserProfile(targetWeightKg: -1).validate(),
+      throwsFormatException,
+    );
+    expect(
+      () => WeightRecord(
+        id: 'x',
+        weightKg: double.infinity,
+        recordedAt: DateTime(2025),
+      ).validate(),
+      throwsFormatException,
+    );
+    expect(
+      () => WeightRecord(
+        id: 'x',
+        weightKg: 60,
+        recordedAt: DateTime.now().add(const Duration(days: 1)),
+      ).validate(),
+      throwsFormatException,
+    );
+  });
+  test('new profile does not invent personal body measurements', () {
+    expect(const UserProfile().heightCm, 0);
+    expect(const UserProfile().targetWeightKg, 0);
   });
 }

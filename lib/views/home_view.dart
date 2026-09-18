@@ -1,345 +1,226 @@
-﻿import 'package:flutter/material.dart';
-import '../services/bmi_calculator.dart';
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import '../services/date_helper.dart';
 import '../services/storage_service.dart';
+import '../services/weight_stats.dart';
 import '../theme/lava_theme.dart';
+import '../widgets/app_helpers.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/glowing_button.dart';
+import '../widgets/lava_background.dart';
 import '../widgets/lava_trend_chart.dart';
-import 'record_view.dart';
 
 class HomeView extends StatelessWidget {
   final StorageService storage;
-
-  const HomeView({super.key, required this.storage});
+  final VoidCallback onRecord;
+  final VoidCallback onProfile;
+  const HomeView({
+    super.key,
+    required this.storage,
+    required this.onRecord,
+    required this.onProfile,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final dateStr = DateHelper.formatFullDate(now);
     final latest = storage.latestRecord;
-    final diff = storage.latestDifference;
-    final profile = storage.profile;
-
-    final currentWeightKg = latest?.weightKg ?? profile.initialWeightKg;
-    final displayWeight =
-        profile.useJin ? currentWeightKg * 2 : currentWeightKg;
-    final unitStr = profile.useJin ? '斤' : 'kg';
-
-    final bmi = BMICalculator.calculateBMI(currentWeightKg, profile.heightCm);
-    final bmiCategory = BMICalculator.getCategory(bmi);
-
-    final recentSeven = storage.records.take(7).toList();
-
-    return Stack(
-      children: [
-        // Background Image
-        Positioned.fill(
-          child: Image.asset(
-            'assets/images/home_lava.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-          ),
-        ),
-
-        // Dark Ambient Vignette
-        Positioned.fill(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0x2013071A), Color(0x6013071A)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
-        ),
-
-        // Content
-        SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    final jin = storage.profile.useJin;
+    final unit = jin ? '斤' : 'kg';
+    final now = DateTime.now();
+    final isToday =
+        latest != null && DateUtils.isSameDay(latest.recordedAt, now);
+    final recent = WeightStats.select(storage.records, TrendPeriod.week, now);
+    return PageBackdrop(
+      image: 'home',
+      motion: storage.profile.motionEnabled,
+      child: SafeArea(
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, bounds) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header Bar
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '体重日记',
-                          style: TextStyle(
-                            color: LavaTheme.textPrimary,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          dateStr,
-                          style: const TextStyle(
-                            color: LavaTheme.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: LavaTheme.glassFill,
-                        border:
-                            Border.all(color: LavaTheme.glassBorder, width: 1),
-                      ),
-                      child: const Icon(
-                        Icons.person_outline,
-                        color: LavaTheme.textSecondary,
-                        size: 22,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Main Weight Hero Section
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '今天的体重',
-                      style: TextStyle(
-                        color: LavaTheme.textSecondary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          displayWeight.toStringAsFixed(1),
-                          style: const TextStyle(
-                            color: LavaTheme.textPrimary,
-                            fontSize: 56,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.0,
-                            height: 1.1,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          unitStr,
-                          style: const TextStyle(
-                            color: LavaTheme.textSecondary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Diff Pill & BMI Badge
-                    Row(
-                      children: [
-                        if (diff != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: diff <= 0
-                                  ? const Color(0x3310B981)
-                                  : const Color(0x33F59E0B),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: diff <= 0
-                                    ? LavaTheme.success
-                                    : LavaTheme.warning,
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  diff <= 0
-                                      ? Icons.arrow_downward
-                                      : Icons.arrow_upward,
-                                  color: diff <= 0
-                                      ? LavaTheme.success
-                                      : LavaTheme.warning,
-                                  size: 13,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '较上次 ${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} kg',
-                                  style: TextStyle(
-                                    color: diff <= 0
-                                        ? LavaTheme.success
-                                        : LavaTheme.warning,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0x332A0F38),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: LavaTheme.glassBorderSubtle,
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Text(
-                            'BMI $bmi · ${bmiCategory.label}',
-                            style: const TextStyle(
-                              color: LavaTheme.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-
-                // Quick Target & Initial Weight Row
-                GlassCard(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildQuickStat(
-                        '起始体重',
-                        '${profile.initialWeightKg.toStringAsFixed(1)} kg',
-                      ),
-                      Container(
-                        width: 1,
-                        height: 28,
-                        color: LavaTheme.glassBorderSubtle,
-                      ),
-                      _buildQuickStat(
-                        '目标体重',
-                        '${profile.targetWeightKg.toStringAsFixed(1)} kg',
-                      ),
-                      Container(
-                        width: 1,
-                        height: 28,
-                        color: LavaTheme.glassBorderSubtle,
-                      ),
-                      _buildQuickStat(
-                        '累计变化',
-                        storage.totalChange != null
-                            ? '${storage.totalChange! > 0 ? '+' : ''}${storage.totalChange!.toStringAsFixed(1)} kg'
-                            : '--',
-                        highlightColor: LavaTheme.lavaPeach,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Recent 7 Days Trend Card
-                GlassCard(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            '近7次变化',
+                            '体重',
                             style: TextStyle(
-                              color: LavaTheme.textPrimary,
-                              fontSize: 15,
+                              fontSize: 25,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          const SizedBox(height: 5),
                           Text(
-                            recentSeven.isNotEmpty
-                                ? '最新 ${recentSeven.first.weightKg.toStringAsFixed(1)} kg'
-                                : '',
+                            DateHelper.formatFullDate(now),
                             style: const TextStyle(
-                              color: LavaTheme.lavaPeach,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              color: LavaTheme.textSecondary,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                    ),
+                    IconButton(
+                      onPressed: onProfile,
+                      tooltip: '个人设置',
+                      style: IconButton.styleFrom(
+                        side: const BorderSide(color: LavaTheme.glassBorder),
+                      ),
+                      icon: const Icon(Icons.person_outline_rounded),
+                    ),
+                  ],
+                ),
+                if (storage.isDemo)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: InkWell(
+                      onTap: storage.exitDemo,
+                      child: const Text(
+                        '演示预览 · 点击退出',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: LavaTheme.lavaPink,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 48),
+                Text(
+                  latest == null ? '从第一笔记录开始' : (isToday ? '今天的体重' : '最近的体重'),
+                  style: const TextStyle(
+                    color: LavaTheme.textSecondary,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          WeightStats.weight(latest?.weightKg, jin),
+                          style: const TextStyle(
+                            fontSize: 66,
+                            height: 1.12,
+                            fontWeight: FontWeight.w300,
+                            letterSpacing: -1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      unit,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        color: LavaTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  storage.latestDifference == null
+                      ? (latest == null ? '把变化，交给时间' : '已保存第一笔记录')
+                      : '较上次 ${WeightStats.delta(storage.latestDifference, jin)} $unit',
+                  style: const TextStyle(
+                    color: LavaTheme.lavaPink,
+                    fontSize: 15,
+                  ),
+                ),
+                if (latest != null && !isToday)
+                  Text(
+                    DateHelper.formatDateTime(latest.recordedAt),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: LavaTheme.textMuted,
+                    ),
+                  ),
+                SizedBox(height: math.max(70, bounds.maxHeight * 0.20)),
+                GlassCard(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '近 7 天',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                          Text(
+                            '${WeightStats.delta(WeightStats.change(recent), jin)} $unit',
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ],
+                      ),
                       LavaTrendChart(
-                        records: recentSeven,
-                        height: 160,
+                        records: recent,
+                        height: 112,
+                        useJin: jin,
+                        compact: true,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-
-                // Quick Action Button: + 记录体重
-                GlowingButton(
-                  label: '+ 记录体重',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => RecordView(storage: storage),
+                if (storage.profile.targetWeightKg > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      '目标 ${WeightStats.weight(storage.profile.targetWeightKg, jin)} $unit'
+                      '   ·   累计 ${WeightStats.delta(storage.totalChange, jin)} $unit',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: LavaTheme.textSecondary,
                       ),
-                    );
-                  },
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                Center(
+                  child: GlowingButton(
+                    label: storage.isDemo ? '开始我的记录' : '记录体重',
+                    icon: Icons.add,
+                    width: 218,
+                    onPressed: onRecord,
+                  ),
                 ),
-                const SizedBox(height: 80),
+                if (latest == null)
+                  Center(
+                    child: TextButton(
+                      onPressed: () => storage.showDemo(),
+                      child: const Text(
+                        '先看看效果',
+                        style: TextStyle(color: LavaTheme.textSecondary),
+                      ),
+                    ),
+                  ),
+                if (storage.loadError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: GlowingButton(
+                      label: storage.loadError!,
+                      isSecondary: true,
+                      onPressed: () async {
+                        await storage.retryLoad();
+                        if (context.mounted && storage.loadError != null) {
+                          showNotice(context, storage.loadError!);
+                        }
+                      },
+                    ),
+                  ),
               ],
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildQuickStat(String label, String value, {Color? highlightColor}) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: LavaTheme.textMuted,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: highlightColor ?? LavaTheme.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

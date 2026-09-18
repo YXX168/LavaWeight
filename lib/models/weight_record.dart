@@ -13,53 +13,39 @@ class WeightRecord {
     this.mood,
   });
 
-  double get weightInJin => weightKg * 2.0;
+  double get weightInJin => weightKg * 2;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'weightKg': weightKg,
-      'recordedAt': recordedAt.toIso8601String(),
-      'note': note,
-      'mood': mood,
-    };
+  void validate() {
+    if (id.isEmpty ||
+        id.length > 120 ||
+        !weightKg.isFinite ||
+        weightKg < 20 ||
+        weightKg > 300 ||
+        recordedAt.year < 2000 ||
+        recordedAt.isAfter(DateTime.now()) ||
+        (note?.length ?? 0) > 500 ||
+        ![null, 'great', 'good', 'neutral', 'tired'].contains(mood)) {
+      throw const FormatException('体重、日期或备注不正确');
+    }
   }
 
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'weightKg': weightKg,
+    'recordedAt': recordedAt.toIso8601String(),
+    'note': note,
+    'mood': mood,
+  };
+
   factory WeightRecord.fromJson(Map<String, dynamic> json) {
-    return WeightRecord(
+    final record = WeightRecord(
       id: json['id'] as String,
       weightKg: (json['weightKg'] as num).toDouble(),
-      recordedAt: DateTime.parse(json['recordedAt'] as String),
+      recordedAt: DateTime.parse(json['recordedAt'] as String).toLocal(),
       note: json['note'] as String?,
       mood: json['mood'] as String?,
     );
+    record.validate();
+    return record;
   }
-
-  WeightRecord copyWith({
-    String? id,
-    double? weightKg,
-    DateTime? recordedAt,
-    String? note,
-    String? mood,
-  }) {
-    return WeightRecord(
-      id: id ?? this.id,
-      weightKg: weightKg ?? this.weightKg,
-      recordedAt: recordedAt ?? this.recordedAt,
-      note: note ?? this.note,
-      mood: mood ?? this.mood,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is WeightRecord &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          weightKg == other.weightKg &&
-          recordedAt == other.recordedAt;
-
-  @override
-  int get hashCode => id.hashCode ^ weightKg.hashCode ^ recordedAt.hashCode;
 }

@@ -1,87 +1,93 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/lava_theme.dart';
 
-class GlowingButton extends StatefulWidget {
+class GlowingButton extends StatelessWidget {
   final String label;
   final IconData? icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final double height;
   final double? width;
   final bool isSecondary;
-
   const GlowingButton({
     super.key,
     required this.label,
     this.icon,
     required this.onPressed,
-    this.height = 54.0,
+    this.height = 54,
     this.width,
     this.isSecondary = false,
   });
 
   @override
-  State<GlowingButton> createState() => _GlowingButtonState();
-}
-
-class _GlowingButtonState extends State<GlowingButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onPressed();
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: Container(
-          height: widget.height,
-          width: widget.width ?? double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.height / 2),
-            gradient: widget.isSecondary ? null : LavaTheme.buttonGradient,
-            color: widget.isSecondary ? LavaTheme.glassFill : null,
-            border: Border.all(
-              color: widget.isSecondary
-                  ? LavaTheme.glassBorder
-                  : const Color(0x66FFFFFF),
-              width: 1.2,
+  Widget build(BuildContext context) => Opacity(
+    opacity: onPressed == null ? 0.5 : 1,
+    child: Container(
+      width: width,
+      constraints: BoxConstraints(minHeight: height),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: isSecondary ? null : LavaTheme.buttonGlowShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: isSecondary
+                    ? LavaTheme.glassBorder
+                    : const Color(0xCCEAB4E0),
+              ),
+              gradient: LinearGradient(
+                colors: isSecondary
+                    ? [const Color(0x224C2A50), const Color(0x18362140)]
+                    : [
+                        const Color(0xBDB14B8D),
+                        const Color(0x686B2057),
+                        const Color(0xA38B326B),
+                      ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
             ),
-            boxShadow: widget.isSecondary
-                ? LavaTheme.cardShadow
-                : LavaTheme.buttonGlowShadow,
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.icon != null) ...[
-                Icon(
-                  widget.icon,
-                  color: LavaTheme.textPrimary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                widget.label,
-                style: const TextStyle(
-                  color: LavaTheme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onPressed,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 21),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

@@ -4,33 +4,51 @@ class UserProfile {
   final double targetWeightKg;
   final double initialWeightKg;
   final bool useJin;
+  final bool motionEnabled;
 
   const UserProfile({
-    this.nickname = '探索者',
-    this.heightCm = 175.0,
-    this.targetWeightKg = 65.0,
-    this.initialWeightKg = 72.0,
+    this.nickname = '',
+    this.heightCm = 0,
+    this.targetWeightKg = 0,
+    this.initialWeightKg = 0,
     this.useJin = false,
+    this.motionEnabled = true,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'nickname': nickname,
-      'heightCm': heightCm,
-      'targetWeightKg': targetWeightKg,
-      'initialWeightKg': initialWeightKg,
-      'useJin': useJin,
-    };
+  void validate() {
+    if (nickname.length > 40 ||
+        !heightCm.isFinite ||
+        (heightCm != 0 && (heightCm < 50 || heightCm > 250)) ||
+        !targetWeightKg.isFinite ||
+        (targetWeightKg != 0 &&
+            (targetWeightKg < 20 || targetWeightKg > 300)) ||
+        !initialWeightKg.isFinite ||
+        (initialWeightKg != 0 &&
+            (initialWeightKg < 20 || initialWeightKg > 300))) {
+      throw const FormatException('个人设置数值不正确');
+    }
   }
 
+  Map<String, dynamic> toJson() => {
+    'nickname': nickname,
+    'heightCm': heightCm,
+    'targetWeightKg': targetWeightKg,
+    'initialWeightKg': initialWeightKg,
+    'useJin': useJin,
+    'motionEnabled': motionEnabled,
+  };
+
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    return UserProfile(
-      nickname: json['nickname'] as String? ?? '探索者',
-      heightCm: (json['heightCm'] as num?)?.toDouble() ?? 175.0,
-      targetWeightKg: (json['targetWeightKg'] as num?)?.toDouble() ?? 65.0,
-      initialWeightKg: (json['initialWeightKg'] as num?)?.toDouble() ?? 72.0,
+    final result = UserProfile(
+      nickname: json['nickname'] as String? ?? '',
+      heightCm: (json['heightCm'] as num?)?.toDouble() ?? 0,
+      targetWeightKg: (json['targetWeightKg'] as num?)?.toDouble() ?? 0,
+      initialWeightKg: (json['initialWeightKg'] as num?)?.toDouble() ?? 0,
       useJin: json['useJin'] as bool? ?? false,
+      motionEnabled: json['motionEnabled'] as bool? ?? true,
     );
+    result.validate();
+    return result;
   }
 
   UserProfile copyWith({
@@ -39,13 +57,13 @@ class UserProfile {
     double? targetWeightKg,
     double? initialWeightKg,
     bool? useJin,
-  }) {
-    return UserProfile(
-      nickname: nickname ?? this.nickname,
-      heightCm: heightCm ?? this.heightCm,
-      targetWeightKg: targetWeightKg ?? this.targetWeightKg,
-      initialWeightKg: initialWeightKg ?? this.initialWeightKg,
-      useJin: useJin ?? this.useJin,
-    );
-  }
+    bool? motionEnabled,
+  }) => UserProfile(
+    nickname: nickname ?? this.nickname,
+    heightCm: heightCm ?? this.heightCm,
+    targetWeightKg: targetWeightKg ?? this.targetWeightKg,
+    initialWeightKg: initialWeightKg ?? this.initialWeightKg,
+    useJin: useJin ?? this.useJin,
+    motionEnabled: motionEnabled ?? this.motionEnabled,
+  );
 }

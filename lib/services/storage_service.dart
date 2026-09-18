@@ -1,113 +1,109 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/weight_record.dart';
 import '../models/user_profile.dart';
+import 'state_store.dart';
+
+class BackupData {
+  final UserProfile profile;
+  final List<WeightRecord> records;
+  const BackupData(this.profile, this.records);
+}
 
 class StorageService extends ChangeNotifier {
-  static const String _recordsKey = 'lava_weight_records_v1';
-  static const String _profileKey = 'lava_user_profile_v1';
-
-  final SharedPreferences _prefs;
+  final StateStore _store;
   List<WeightRecord> _records = [];
   UserProfile _profile = const UserProfile();
+  List<WeightRecord>? _demo;
+  Future<void> _pending = Future<void>.value();
+  String? loadError;
 
-  StorageService(this._prefs) {
-    _loadFromPrefs();
-  }
+  StorageService(this._store);
 
-  List<WeightRecord> get records => List.unmodifiable(_records);
-  UserProfile get profile => _profile;
-
-  WeightRecord? get latestRecord => _records.isNotEmpty ? _records.first : null;
-
-  WeightRecord? get previousRecord => _records.length > 1 ? _records[1] : null;
-
-  double? get latestDifference {
-    if (_records.length < 2) return null;
-    final diff = _records[0].weightKg - _records[1].weightKg;
-    return double.parse(diff.toStringAsFixed(1));
-  }
-
-  double? get totalChange {
-    if (_records.isEmpty) return null;
-    final diff = _records.first.weightKg - _profile.initialWeightKg;
-    return double.parse(diff.toStringAsFixed(1));
-  }
-
-  void _loadFromPrefs() {
-    // Load Profile
-    final profileJson = _prefs.getString(_profileKey);
-    if (profileJson != null) {
-      try {
-        final map = jsonDecode(profileJson) as Map<String, dynamic>;
-        _profile = UserProfile.fromJson(map);
-      } catch (e) {
-        debugPrint('Failed to load profile: $e');
+  Future<void> load() async {
+    try {
+      final raw = await _store.read();
+      if (raw != null) {
+        final data = parseBackup(raw);
+        _records = _sorted(data.records);
+        _profile = data.profile;
       }
-    }
-
-    // Load Records
-    final recordsJson = _prefs.getString(_recordsKey);
-    if (recordsJson != null) {
-      try {
-        final list = jsonDecode(recordsJson) as List<dynamic>;
-        _records = list
-            .map((item) => WeightRecord.fromJson(item as Map<String, dynamic>))
-            .toList();
-        _sortRecords();
-      } catch (e) {
-        debugPrint('Failed to load records: $e');
-      }
-    }
-
-    // If empty on first launch, seed realistic demo data matching the approved concept board
-    if (_records.isEmpty) {
-      seedDemoData(notify: false);
+    } catch (_) {
+      loadError = '本地数据暂时无法读取。原数据已保留，请重试。';
     }
   }
 
-  void _sortRecords() {
-    _records.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+  bool get isDemo => _demo != null;
+  List<WeightRecord> get records => List.unmodifiable(_demo ?? _records);
+  UserProfile get profile => isDemo
+      ? _profile.copyWith(
+          heightCm: 175,
+          targetWeightKg: 65,
+          initialWeightKg: 72,
+        )
+      : _profile;
+  UserProfile get savedProfile => _profile;
+  WeightRecord? get latestRecord => records.isEmpty ? null : records.first;
+  double? get latestDifference => records.length < 2
+      ? null
+      : _round(records[0].weightKg - records[1].weightKg);
+  double? get totalChange => records.isEmpty
+      ? null
+      : _round(
+          records.first.weightKg -
+              (profile.initialWeightKg > 0
+                  ? profile.initialWeightKg
+                  : records.last.weightKg),
+        );
+
+  static double _round(double value) => double.parse(value.toStringAsFixed(1));
+  static List<WeightRecord> _sorted(Iterable<WeightRecord> value) =>
+      value.toList()..sort((a, b) {
+        final result = b.recordedAt.compareTo(a.recordedAt);
+        return result != 0 ? result : b.id.compareTo(a.id);
+      });
+
+  // Serialize all mutations; memory changes only after the SQLite transaction succeeds.
+  Future<void> _enqueue(Future<void> Function() action) {
+    final operation = _pending.then((_) => action());
+    _pending = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
   }
 
-  Future<void> _persistRecords() async {
-    final list = _records.map((r) => r.toJson()).toList();
-    await _prefs.setString(_recordsKey, jsonEncode(list));
-  }
-
-  Future<void> _persistProfile() async {
-    await _prefs.setString(_profileKey, jsonEncode(_profile.toJson()));
-  }
-
-  Future<void> saveRecord(WeightRecord record) async {
-    final index = _records.indexWhere((r) => r.id == record.id);
-    if (index >= 0) {
-      _records[index] = record;
-    } else {
-      _records.add(record);
-    }
-    _sortRecords();
-    await _persistRecords();
-    notifyListeners();
-  }
-
-  Future<void> deleteRecord(String id) async {
-    _records.removeWhere((r) => r.id == id);
-    await _persistRecords();
-    notifyListeners();
-  }
-
-  Future<void> saveProfile(UserProfile profile) async {
+  Future<void> _commit(List<WeightRecord> records, UserProfile profile) async {
+    if (loadError != null) throw StateError('原数据未能读取，暂不能写入');
+    final sorted = _sorted(records);
+    await _store.write(_encode(sorted, profile));
+    _records = sorted;
     _profile = profile;
-    await _persistProfile();
     notifyListeners();
   }
 
-  void seedDemoData({bool notify = true}) {
-    final now = DateTime.now();
-    // 18 days of weight history leading to 68.5 kg, matching the design concept board
-    final demoWeights = [
+  Future<void> saveRecord(WeightRecord record) => _enqueue(() async {
+    if (isDemo) throw StateError('请先退出演示预览');
+    record.validate();
+    await _commit([
+      ..._records.where((r) => r.id != record.id),
+      record,
+    ], _profile);
+  });
+
+  Future<void> deleteRecord(String id) => _enqueue(() async {
+    if (isDemo) throw StateError('演示记录不能修改');
+    await _commit(_records.where((r) => r.id != id).toList(), _profile);
+  });
+
+  Future<void> saveProfile(UserProfile profile) => _enqueue(() async {
+    profile.validate();
+    await _commit(_records, profile);
+  });
+
+  void showDemo({DateTime? now}) {
+    final day = now ?? DateTime.now();
+    const weights = [
       68.5,
       68.8,
       68.9,
@@ -125,69 +121,75 @@ class StorageService extends ChangeNotifier {
       70.1,
       70.4,
       70.2,
-      70.3
+      70.3,
     ];
-
-    _records = [];
-    for (int i = 0; i < demoWeights.length; i++) {
-      final date = now.subtract(Duration(days: i, hours: i * 2 % 5));
-      _records.add(
+    _demo = [
+      for (var i = 0; i < weights.length; i++)
         WeightRecord(
-          id: 'demo_${date.millisecondsSinceEpoch}',
-          weightKg: demoWeights[i],
-          recordedAt: date,
-          mood: i == 0 ? 'great' : (i % 3 == 0 ? 'good' : 'neutral'),
-          note: i == 0 ? '晨起空腹称重，状态很好' : (i == 5 ? '今日运动后打卡' : null),
+          id: 'demo_$i',
+          weightKg: weights[i],
+          recordedAt: day.subtract(Duration(days: i)),
+          note: i == 0 ? '演示记录' : null,
         ),
-      );
-    }
-    _sortRecords();
-    _persistRecords();
-    if (notify) notifyListeners();
+    ];
+    notifyListeners();
   }
+
+  void exitDemo() {
+    _demo = null;
+    notifyListeners();
+  }
+
+  String _encode(List<WeightRecord> records, UserProfile profile) =>
+      const JsonEncoder.withIndent('  ').convert({
+        'app': 'LavaWeight',
+        'version': 1,
+        'exportedAt': DateTime.now().toIso8601String(),
+        'profile': profile.toJson(),
+        'records': records.map((r) => r.toJson()).toList(),
+      });
 
   String exportBackupJson() {
-    final data = {
-      'app': 'LavaWeight',
-      'version': 1,
-      'exportedAt': DateTime.now().toIso8601String(),
-      'profile': _profile.toJson(),
-      'records': _records.map((r) => r.toJson()).toList(),
-    };
-    return const JsonEncoder.withIndent('  ').convert(data);
+    if (loadError != null) throw StateError('请先恢复本地数据读取');
+    return _encode(_records, _profile);
   }
 
-  bool importBackupJson(String jsonStr) {
-    try {
-      final Map<String, dynamic> data =
-          jsonDecode(jsonStr) as Map<String, dynamic>;
-      if (data['app'] != 'LavaWeight') {
-        return false;
-      }
-      if (data['profile'] is Map<String, dynamic>) {
-        _profile =
-            UserProfile.fromJson(data['profile'] as Map<String, dynamic>);
-        _persistProfile();
-      }
-      if (data['records'] is List<dynamic>) {
-        final list = data['records'] as List<dynamic>;
-        _records = list
-            .map((item) => WeightRecord.fromJson(item as Map<String, dynamic>))
-            .toList();
-        _sortRecords();
-        _persistRecords();
-      }
-      notifyListeners();
-      return true;
-    } catch (e) {
-      debugPrint('Backup import failed: $e');
-      return false;
+  static BackupData parseBackup(String raw) {
+    if (raw.length > 10000000) throw const FormatException('备份文件过大');
+    final data = jsonDecode(raw);
+    if (data is! Map<String, dynamic> ||
+        data['app'] != 'LavaWeight' ||
+        data['version'] != 1 ||
+        data['profile'] is! Map<String, dynamic> ||
+        data['records'] is! List) {
+      throw const FormatException('不是受支持的流光体重备份');
     }
+    final profile = UserProfile.fromJson(
+      data['profile'] as Map<String, dynamic>,
+    );
+    final source = data['records'] as List;
+    if (source.length > 50000) throw const FormatException('记录数量过多');
+    final ids = <String>{};
+    final records = <WeightRecord>[];
+    for (final item in source) {
+      if (item is! Map<String, dynamic>) throw const FormatException('记录格式错误');
+      final record = WeightRecord.fromJson(item);
+      if (!ids.add(record.id)) throw const FormatException('存在重复记录编号');
+      records.add(record);
+    }
+    return BackupData(profile, records);
   }
 
-  Future<void> clearAll() async {
-    _records.clear();
-    await _persistRecords();
+  Future<void> importBackupJson(String raw) => _enqueue(() async {
+    final data = parseBackup(raw);
+    await _commit(data.records, data.profile);
+    _demo = null;
+    notifyListeners();
+  });
+
+  Future<void> retryLoad() async {
+    loadError = null;
+    await load();
     notifyListeners();
   }
 }

@@ -2,7 +2,8 @@
     <application
         android:label="流光体重"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,4 +27,3 @@
             android:value="2" />
     </application>
 </manifest>
-

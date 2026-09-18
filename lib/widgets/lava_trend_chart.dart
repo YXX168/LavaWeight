@@ -1,317 +1,270 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import '../models/weight_record.dart';
 import '../services/date_helper.dart';
+import '../services/weight_stats.dart';
 import '../theme/lava_theme.dart';
 
 class LavaTrendChart extends StatefulWidget {
   final List<WeightRecord> records;
   final double height;
-  final bool showPoints;
-
+  final bool compact;
+  final bool useJin;
   const LavaTrendChart({
     super.key,
     required this.records,
-    this.height = 220,
-    this.showPoints = true,
+    this.height = 230,
+    this.compact = false,
+    this.useJin = false,
   });
-
   @override
   State<LavaTrendChart> createState() => _LavaTrendChartState();
 }
 
 class _LavaTrendChartState extends State<LavaTrendChart> {
-  int? _selectedIndex;
+  int? _selected;
+  @override
+  void didUpdateWidget(covariant LavaTrendChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.records != widget.records) _selected = null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.records.isEmpty) {
+    final rows = [...widget.records]
+      ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+    if (rows.isEmpty) {
       return SizedBox(
         height: widget.height,
         child: const Center(
           child: Text(
-            '暂无记录数据',
-            style: TextStyle(color: LavaTheme.textMuted, fontSize: 14),
+            '这段时间还没有记录',
+            style: TextStyle(color: LavaTheme.textSecondary, fontSize: 12),
           ),
         ),
       );
     }
+    final unit = widget.useJin ? '斤' : 'kg';
+    return Semantics(
+      label:
+          '体重趋势，${rows.length}条记录，'
+          '最近${WeightStats.weight(rows.last.weightKg, widget.useJin)}$unit',
+      child: LayoutBuilder(
+        builder: (context, bounds) {
+          void select(Offset position) {
+            final positions = _xPositions(
+              rows,
+              bounds.maxWidth,
+              widget.compact,
+            );
+            var closest = 0;
+            for (var i = 1; i < positions.length; i++) {
+              if ((positions[i] - position.dx).abs() <
+                  (positions[closest] - position.dx).abs()) {
+                closest = i;
+              }
+            }
+            setState(() => _selected = closest);
+          }
 
-    final sorted = List<WeightRecord>.from(widget.records)
-      ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return GestureDetector(
-          onPanUpdate: (details) {
-            _handleTouch(details.localPosition, width, sorted.length);
-          },
-          onTapDown: (details) {
-            _handleTouch(details.localPosition, width, sorted.length);
-          },
-          onPanEnd: (_) => setState(() => _selectedIndex = null),
-          onTapUp: (_) => setState(() => _selectedIndex = null),
-          child: SizedBox(
-            height: widget.height,
-            width: width,
-            child: Stack(
-              children: [
-                CustomPaint(
-                  size: Size(width, widget.height),
-                  painter: _ChartPainter(
-                    records: sorted,
-                    selectedIndex: _selectedIndex,
+          final active = _selected == null || _selected! >= rows.length
+              ? null
+              : rows[_selected!];
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (d) => select(d.localPosition),
+            onHorizontalDragUpdate: (d) => select(d.localPosition),
+            child: SizedBox(
+              height: widget.height,
+              width: bounds.maxWidth,
+              child: Stack(
+                children: [
+                  CustomPaint(
+                    size: Size(bounds.maxWidth, widget.height),
+                    painter: _ChartPainter(
+                      rows,
+                      widget.useJin,
+                      widget.compact,
+                      _selected,
+                    ),
                   ),
-                ),
-                if (_selectedIndex != null &&
-                    _selectedIndex! >= 0 &&
-                    _selectedIndex! < sorted.length)
-                  _buildTooltip(sorted[_selectedIndex!], width),
-              ],
+                  if (active != null)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: LavaTheme.backgroundAubergine,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            child: Text(
+                              '${DateHelper.formatShortDateTime(active.recordedAt)} · '
+                              '${WeightStats.weight(active.weightKg, widget.useJin)} $unit',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _handleTouch(Offset localPosition, double totalWidth, int count) {
-    if (count <= 1) return;
-    const paddingHorizontal = 24.0;
-    final chartWidth = totalWidth - (paddingHorizontal * 2);
-    final dx = (localPosition.dx - paddingHorizontal).clamp(0.0, chartWidth);
-    final ratio = dx / chartWidth;
-    final index = (ratio * (count - 1)).round();
-    if (index != _selectedIndex) {
-      setState(() => _selectedIndex = index);
-    }
-  }
-
-  Widget _buildTooltip(WeightRecord record, double totalWidth) {
-    final dateStr = DateHelper.formatShortDateTime(record.recordedAt);
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xE62A0F38),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: LavaTheme.lavaPink, width: 1),
-            boxShadow: LavaTheme.buttonGlowShadow,
-          ),
-          child: Text(
-            '$dateStr · ${record.weightKg.toStringAsFixed(1)} kg',
-            style: const TextStyle(
-              color: LavaTheme.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-class _ChartPainter extends CustomPainter {
-  final List<WeightRecord> records;
-  final int? selectedIndex;
+List<double> _xPositions(List<WeightRecord> rows, double width, bool compact) {
+  final left = compact ? 8.0 : 36.0;
+  final span = math.max(1.0, width - left - 18);
+  final start = rows.first.recordedAt.millisecondsSinceEpoch;
+  final duration = rows.last.recordedAt.millisecondsSinceEpoch - start;
+  return [
+    for (final row in rows)
+      duration == 0
+          ? left + span / 2
+          : left +
+                span *
+                    (row.recordedAt.millisecondsSinceEpoch - start) /
+                    duration,
+  ];
+}
 
-  _ChartPainter({
-    required this.records,
-    this.selectedIndex,
-  });
+class _ChartPainter extends CustomPainter {
+  final List<WeightRecord> rows;
+  final bool jin;
+  final bool compact;
+  final int? selected;
+  _ChartPainter(this.rows, this.jin, this.compact, this.selected);
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (records.isEmpty) return;
-
-    const leftPadding = 24.0;
-    const rightPadding = 24.0;
-    const topPadding = 30.0;
-    const bottomPadding = 32.0;
-
-    final drawWidth = size.width - leftPadding - rightPadding;
-    final drawHeight = size.height - topPadding - bottomPadding;
-
-    // Determine min and max weights with padding
-    double minW = records.first.weightKg;
-    double maxW = records.first.weightKg;
-    for (final r in records) {
-      if (r.weightKg < minW) minW = r.weightKg;
-      if (r.weightKg > maxW) maxW = r.weightKg;
-    }
-
-    if (maxW == minW) {
-      maxW += 1.0;
-      minW -= 1.0;
-    } else {
-      final range = maxW - minW;
-      maxW += range * 0.15;
-      minW -= range * 0.15;
-    }
-
-    // Grid lines
-    final gridPaint = Paint()
-      ..color = const Color(0x1AFFFFFF)
-      ..strokeWidth = 0.8
-      ..style = PaintingStyle.stroke;
-
-    const textStyle = TextStyle(
-      color: LavaTheme.textMuted,
-      fontSize: 10,
-      fontWeight: FontWeight.w400,
-    );
-
-    // Draw 3 horizontal grid lines (min, mid, max)
-    for (int i = 0; i <= 2; i++) {
-      final y = topPadding + (drawHeight / 2) * i;
-      canvas.drawLine(
-        Offset(leftPadding, y),
-        Offset(size.width - rightPadding, y),
-        gridPaint,
-      );
-
-      final val = maxW - (maxW - minW) * (i / 2);
-      final textSpan = TextSpan(
-        text: val.toStringAsFixed(1),
-        style: textStyle,
-      );
-      final tp = TextPainter(
-        text: textSpan,
+    final values = rows.map((r) => r.weightKg * (jin ? 2 : 1)).toList();
+    final low = values.reduce(math.min);
+    final high = values.reduce(math.max);
+    final padding = math.max((high - low) * 0.18, jin ? 0.4 : 0.2);
+    final min = low - padding;
+    final max = high + padding;
+    final left = compact ? 8.0 : 36.0;
+    const top = 30.0;
+    final bottom = size.height - 25;
+    final xs = _xPositions(rows, size.width, compact);
+    final points = [
+      for (var i = 0; i < rows.length; i++)
+        Offset(
+          xs[i],
+          top + (1 - (values[i] - min) / (max - min)) * (bottom - top),
+        ),
+    ];
+    void label(String value, Offset point, {bool right = false}) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: value,
+          style: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 10,
+            color: LavaTheme.textSecondary,
+          ),
+        ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(leftPadding - tp.width - 6, y - tp.height / 2));
-    }
-
-    // Compute coordinate points
-    final points = <Offset>[];
-    for (int i = 0; i < records.length; i++) {
-      final x = records.length == 1
-          ? leftPadding + drawWidth / 2
-          : leftPadding + (drawWidth / (records.length - 1)) * i;
-      final normalizedY = (records[i].weightKg - minW) / (maxW - minW);
-      final y = topPadding + drawHeight * (1.0 - normalizedY);
-      points.add(Offset(x, y));
-    }
-
-    // Build smooth Bezier path
-    final path = Path();
-    path.moveTo(points.first.dx, points.first.dy);
-
-    for (int i = 0; i < points.length - 1; i++) {
-      final p0 = points[i];
-      final p1 = points[i + 1];
-      final controlPoint1 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p0.dy);
-      final controlPoint2 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p1.dy);
-      path.cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        p1.dx,
-        p1.dy,
+      painter.paint(
+        canvas,
+        Offset(right ? point.dx - painter.width : point.dx, point.dy),
       );
     }
 
-    // Fill Gradient under curve
-    final fillPath = Path.from(path)
-      ..lineTo(points.last.dx, topPadding + drawHeight)
-      ..lineTo(points.first.dx, topPadding + drawHeight)
-      ..close();
-
-    final fillPaint = Paint()
-      ..shader = LavaTheme.chartFillGradient.createShader(
-        Rect.fromLTWH(leftPadding, topPadding, drawWidth, drawHeight),
-      )
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(fillPath, fillPaint);
-
-    // Draw Main glowing line
-    final linePaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [LavaTheme.lavaPeach, LavaTheme.lavaPink],
-      ).createShader(
-        Rect.fromLTWH(leftPadding, topPadding, drawWidth, drawHeight),
-      )
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(path, linePaint);
-
-    // Endpoint Glowing Indicator
-    final lastPoint = points.last;
-    final glowPaint = Paint()
-      ..color = const Color(0x66FF2A85)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(lastPoint, 8, glowPaint);
-
-    final dotPaint = Paint()
-      ..color = LavaTheme.textPrimary
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(lastPoint, 4, dotPaint);
-
-    // If selected, draw crosshair
-    if (selectedIndex != null &&
-        selectedIndex! >= 0 &&
-        selectedIndex! < points.length) {
-      final selectedPoint = points[selectedIndex!];
-      final crossHairPaint = Paint()
-        ..color = LavaTheme.lavaPeach
-        ..strokeWidth = 1.0
-        ..style = PaintingStyle.stroke;
-
+    if (!compact) {
+      for (var i = 0; i < 4; i++) {
+        final y = top + (bottom - top) * i / 3;
+        canvas.drawLine(
+          Offset(left, y),
+          Offset(size.width - 18, y),
+          Paint()
+            ..color = const Color(0x1AFFFFFF)
+            ..strokeWidth = 0.7,
+        );
+        label(
+          (max - (max - min) * i / 3).toStringAsFixed(1),
+          Offset(left - 5, y - 6),
+          right: true,
+        );
+      }
+    }
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx, points[i].dy);
+    }
+    if (!compact && points.length > 1) {
+      final fill = Path.from(path)
+        ..lineTo(points.last.dx, bottom)
+        ..lineTo(points.first.dx, bottom)
+        ..close();
+      canvas.drawPath(
+        fill,
+        Paint()
+          ..shader = LavaTheme.chartFillGradient.createShader(
+            Rect.fromLTWH(left, top, size.width - left, bottom - top),
+          ),
+      );
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = LavaTheme.lavaPink
+        ..strokeWidth = compact ? 1.5 : 2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    for (var i = 0; i < points.length; i++) {
+      canvas.drawCircle(
+        points[i],
+        i == points.length - 1 ? 4 : 2,
+        Paint()..color = LavaTheme.lavaPink,
+      );
+    }
+    if (selected != null && selected! < points.length) {
       canvas.drawLine(
-        Offset(selectedPoint.dx, topPadding),
-        Offset(selectedPoint.dx, topPadding + drawHeight),
-        crossHairPaint,
-      );
-
-      canvas.drawCircle(
-        selectedPoint,
-        6,
-        Paint()..color = LavaTheme.lavaOrange,
+        Offset(points[selected!].dx, top),
+        Offset(points[selected!].dx, bottom),
+        Paint()
+          ..color = const Color(0x80F4ABE5)
+          ..strokeWidth = 1,
       );
       canvas.drawCircle(
-        selectedPoint,
-        3,
+        points[selected!],
+        5,
         Paint()..color = LavaTheme.textPrimary,
       );
     }
-
-    // X-Axis date labels (first and last)
-    if (records.isNotEmpty) {
-      final firstDate = DateHelper.formatShortDate(records.first.recordedAt);
-      final lastDate = DateHelper.formatShortDate(records.last.recordedAt);
-
-      final firstTp = TextPainter(
-        text: TextSpan(text: firstDate, style: textStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      firstTp.paint(
-        canvas,
-        Offset(leftPadding, topPadding + drawHeight + 8),
-      );
-
-      final lastTp = TextPainter(
-        text: TextSpan(text: lastDate, style: textStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      lastTp.paint(
-        canvas,
-        Offset(size.width - rightPadding - lastTp.width,
-            topPadding + drawHeight + 8),
+    label(
+      DateHelper.formatShortDate(rows.first.recordedAt),
+      Offset(left, bottom + 8),
+    );
+    if (rows.length > 1 &&
+        !DateUtils.isSameDay(rows.first.recordedAt, rows.last.recordedAt)) {
+      label(
+        DateHelper.formatShortDate(rows.last.recordedAt),
+        Offset(size.width - 18, bottom + 8),
+        right: true,
       );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _ChartPainter oldDelegate) {
-    return oldDelegate.records != records ||
-        oldDelegate.selectedIndex != selectedIndex;
-  }
+  bool shouldRepaint(covariant _ChartPainter old) =>
+      old.rows != rows ||
+      old.selected != selected ||
+      old.jin != jin ||
+      old.compact != compact;
 }
