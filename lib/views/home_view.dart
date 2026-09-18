@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../services/bmi_calculator.dart';
+import '../services/date_helper.dart';
 import '../services/storage_service.dart';
 import '../theme/lava_theme.dart';
 import '../widgets/glass_card.dart';
@@ -16,7 +16,7 @@ class HomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final dateStr = DateFormat('M月d日 · EEEE', 'zh_CN').format(now);
+    final dateStr = DateHelper.formatFullDate(now);
     final latest = storage.latestRecord;
     final diff = storage.latestDifference;
     final profile = storage.profile;

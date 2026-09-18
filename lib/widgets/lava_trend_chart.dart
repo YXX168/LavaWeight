@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 import '../models/weight_record.dart';
+import '../services/date_helper.dart';
 import '../theme/lava_theme.dart';
 
 class LavaTrendChart extends StatefulWidget {
@@ -88,7 +88,7 @@ class _LavaTrendChartState extends State<LavaTrendChart> {
   }
 
   Widget _buildTooltip(WeightRecord record, double totalWidth) {
-    final dateStr = DateFormat('MM月dd日 HH:mm').format(record.recordedAt);
+    final dateStr = DateHelper.formatShortDateTime(record.recordedAt);
     return Positioned(
       top: 0,
       left: 0,
@@ -285,8 +285,8 @@ class _ChartPainter extends CustomPainter {
 
     // X-Axis date labels (first and last)
     if (records.isNotEmpty) {
-      final firstDate = DateFormat('MM.dd').format(records.first.recordedAt);
-      final lastDate = DateFormat('MM.dd').format(records.last.recordedAt);
+      final firstDate = DateHelper.formatShortDate(records.first.recordedAt);
+      final lastDate = DateHelper.formatShortDate(records.last.recordedAt);
 
       final firstTp = TextPainter(
         text: TextSpan(text: firstDate, style: textStyle),

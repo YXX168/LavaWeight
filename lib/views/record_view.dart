@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+﻿import 'package:flutter/material.dart';
 import '../models/weight_record.dart';
+import '../services/date_helper.dart';
 import '../services/storage_service.dart';
 import '../theme/lava_theme.dart';
 import '../widgets/glass_card.dart';
@@ -120,7 +120,7 @@ class _RecordViewState extends State<RecordView> {
   @override
   Widget build(BuildContext context) {
     final displayWeight = _useJin ? _weightKg * 2 : _weightKg;
-    final dateStr = DateFormat('今天 · HH:mm', 'zh_CN').format(_selectedDateTime);
+    final dateStr = '今天 · ${DateHelper.formatTime(_selectedDateTime)}';
 
     return Scaffold(
       backgroundColor: LavaTheme.background,
