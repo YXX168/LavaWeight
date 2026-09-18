@@ -116,7 +116,7 @@ class _SettingsViewState extends State<SettingsView> {
       child: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 130),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -286,7 +286,8 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     const SizedBox(height: 22),
                     const Text(
-                      '流光体重 · LavaWeight 0.1.0\n开源 · 离线 · 无账号',
+                      '流光体重 · LavaWeight 0.1.1\n开源 · 离线 · 无账号',
+                      key: ValueKey('settings-last-content'),
                       style: TextStyle(
                         color: LavaTheme.textSecondary,
                         fontSize: 12,

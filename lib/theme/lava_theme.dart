@@ -9,9 +9,9 @@ class LavaTheme {
   static const textPrimary = Color(0xFFFCF2FC);
   static const textSecondary = Color(0xFFD9BDD9);
   static const textMuted = Color(0xFFB09AB6);
-  static const glassFill = Color(0x243D2046);
-  static const glassBorder = Color(0x559E6AA7);
-  static const glassBorderSubtle = Color(0x338E6A99);
+  static const glassFill = Color(0x703D2046);
+  static const glassBorder = Color(0x669E6AA7);
+  static const glassBorderSubtle = Color(0x408E6A99);
   static const success = lavaPink;
   static const warning = lavaPeach;
   static const buttonGlowShadow = [
@@ -41,10 +41,36 @@ class LavaTheme {
       bodyMedium: TextStyle(color: textPrimary, fontSize: 14),
       bodySmall: TextStyle(color: textSecondary, fontSize: 12),
     ),
-    inputDecorationTheme: const InputDecorationTheme(
+    inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Color(0x25281530),
-      border: OutlineInputBorder(borderSide: BorderSide(color: glassBorder)),
+      fillColor: const Color(0x66341A3D),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      labelStyle: const TextStyle(color: textSecondary),
+      hintStyle: const TextStyle(color: textMuted),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: glassBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: glassBorderSubtle),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: lavaPink, width: 1.3),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: lavaPeach),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: lavaPeach, width: 1.3),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: glassBorderSubtle),
+      ),
     ),
     snackBarTheme: const SnackBarThemeData(
       backgroundColor: backgroundAubergine,

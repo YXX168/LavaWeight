@@ -163,6 +163,7 @@ class _TrendsViewState extends State<TrendsView> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: GlassCard(
+                      key: ValueKey('history-${record.id}'),
                       borderRadius: 18,
                       blurSigma: 8,
                       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
@@ -240,7 +241,7 @@ class _TrendsViewState extends State<TrendsView> {
                 },
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 125)),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),

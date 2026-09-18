@@ -129,7 +129,7 @@ class PageBackdrop extends StatelessWidget {
           ),
         ),
       ),
-      child,
+      BackdropGroup(child: child),
     ],
   );
 }

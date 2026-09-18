@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lava_weight/main.dart';
 import 'package:lava_weight/models/user_profile.dart';
 import 'package:lava_weight/services/storage_service.dart';
+import 'package:lava_weight/theme/lava_theme.dart';
 import 'package:lava_weight/views/record_view.dart';
 import 'package:lava_weight/widgets/lava_ruler.dart';
 import 'test_store.dart';
@@ -108,4 +109,89 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('bottom navigation reserves layout space on long pages', (
+    tester,
+  ) async {
+    final storage = await setup(tester);
+    storage.showDemo();
+    await tester.pumpWidget(LavaWeightApp(storage: storage));
+    await tester.pumpAndSettle();
+    final nav = find.byKey(const ValueKey('main-bottom-navigation'));
+    expect(nav, findsOneWidget);
+    final navTop = tester.getTopLeft(nav).dy;
+
+    await tester.tap(find.text('趋势'));
+    await tester.pumpAndSettle();
+    final trendsScroll = find.byType(CustomScrollView);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('history-demo_0')),
+      500,
+      scrollable: find.descendant(
+        of: trendsScroll,
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getBottomRight(find.byKey(const ValueKey('history-demo_0'))).dy,
+      lessThan(navTop),
+    );
+
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+    final settingsScroll = find.byType(SingleChildScrollView).last;
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('settings-last-content')),
+      500,
+      scrollable: find
+          .descendant(of: settingsScroll, matching: find.byType(Scrollable))
+          .last,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getBottomRight(find.byKey(const ValueKey('settings-last-content')))
+          .dy,
+      lessThan(navTop),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('glass cards keep a visible fill after scroll', (tester) async {
+    final storage = await setup(tester);
+    storage.showDemo();
+    await tester.pumpWidget(LavaWeightApp(storage: storage));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('趋势'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+    await tester.pump();
+    final decorations = tester.widgetList<DecoratedBox>(
+      find.byType(DecoratedBox),
+    );
+    expect(
+      decorations.where((widget) {
+        final decoration = widget.decoration;
+        return decoration is BoxDecoration &&
+            decoration.gradient != null &&
+            decoration.borderRadius != null;
+      }),
+      isNotEmpty,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('all text fields use rounded themed borders', (tester) async {
+    final storage = await setup(tester);
+    await tester.pumpWidget(LavaWeightApp(storage: storage));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+    final theme = Theme.of(tester.element(find.byType(TextFormField).first));
+    final border =
+        theme.inputDecorationTheme.enabledBorder as OutlineInputBorder;
+    expect(border.borderRadius.topLeft.x, 18);
+    expect(border.borderSide.color, LavaTheme.glassBorderSubtle);
+  });
 }

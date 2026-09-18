@@ -26,22 +26,34 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget card = ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: backgroundColor ?? LavaTheme.glassFill,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: borderColor ?? LavaTheme.glassBorder,
-              width: 1.0,
+    final radius = BorderRadius.circular(borderRadius);
+    Widget card = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: LavaTheme.cardShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter.grouped(
+          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: backgroundColor ?? LavaTheme.glassFill,
+              gradient: backgroundColor == null
+                  ? const LinearGradient(
+                      colors: [Color(0x843F2148), Color(0x66301A39)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              borderRadius: radius,
+              border: Border.all(
+                color: borderColor ?? LavaTheme.glassBorder,
+                width: 1.0,
+              ),
             ),
-            boxShadow: LavaTheme.cardShadow,
+            child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
           ),
-          child: child,
         ),
       ),
     );

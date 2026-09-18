@@ -29,24 +29,28 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.storage,
     builder: (context, _) => Scaffold(
-      extendBody: true,
-      body: switch (_index) {
-        0 => HomeView(
-          storage: widget.storage,
-          onRecord: _addRecord,
-          onProfile: () => setState(() => _index = 2),
-        ),
-        1 => TrendsView(storage: widget.storage),
-        _ => SettingsView(storage: widget.storage),
-      },
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0x0016071D), Color(0xE616071D)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      body: IndexedStack(
+        index: _index,
+        children: [
+          HomeView(
+            key: const PageStorageKey('home'),
+            storage: widget.storage,
+            onRecord: _addRecord,
+            onProfile: () => setState(() => _index = 2),
           ),
-        ),
+          TrendsView(
+            key: const PageStorageKey('trends'),
+            storage: widget.storage,
+          ),
+          SettingsView(
+            key: const PageStorageKey('settings'),
+            storage: widget.storage,
+          ),
+        ],
+      ),
+      bottomNavigationBar: ColoredBox(
+        key: const ValueKey('main-bottom-navigation'),
+        color: LavaTheme.background,
         child: SafeArea(
           top: false,
           child: Padding(

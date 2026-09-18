@@ -37,7 +37,7 @@ class HomeView extends StatelessWidget {
         bottom: false,
         child: LayoutBuilder(
           builder: (context, bounds) => SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

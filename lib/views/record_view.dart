@@ -5,7 +5,6 @@ import '../services/date_helper.dart';
 import '../services/storage_service.dart';
 import '../theme/lava_theme.dart';
 import '../widgets/app_helpers.dart';
-import '../widgets/glass_card.dart';
 import '../widgets/glowing_button.dart';
 import '../widgets/lava_background.dart';
 import '../widgets/lava_ruler.dart';
@@ -85,7 +84,9 @@ class _RecordViewState extends State<RecordView> {
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            helperText: _jin ? '40–600 斤' : '20–300 kg',
+            labelText: '当前体重',
+            suffixText: _jin ? '斤' : 'kg',
+            helperText: _jin ? '有效范围 40–600 斤' : '有效范围 20–300 kg',
           ),
         ),
         actions: [
@@ -264,27 +265,16 @@ class _RecordViewState extends State<RecordView> {
                         : (selection) => setState(() => _jin = selection.first),
                   ),
                   const SizedBox(height: 22),
-                  GlassCard(
-                    borderRadius: 20,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    child: TextField(
-                      controller: _note,
-                      enabled: !_saving,
-                      maxLength: 500,
-                      minLines: 1,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        icon: Icon(Icons.edit_note_rounded, size: 23),
-                        hintText: '今天感觉如何…',
-                        counterText: '',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                      ),
+                  TextField(
+                    controller: _note,
+                    enabled: !_saving,
+                    maxLength: 500,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.edit_note_rounded, size: 23),
+                      hintText: '今天感觉如何…',
+                      counterText: '',
                     ),
                   ),
                   const SizedBox(height: 22),
