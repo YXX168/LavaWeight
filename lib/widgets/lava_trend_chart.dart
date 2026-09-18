@@ -305,7 +305,8 @@ class _ChartPainter extends CustomPainter {
       )..layout();
       lastTp.paint(
         canvas,
-        Offset(size.width - rightPadding - lastTp.width, topPadding + drawHeight + 8),
+        Offset(size.width - rightPadding - lastTp.width,
+            topPadding + drawHeight + 8),
       );
     }
   }
@@ -316,4 +317,3 @@ class _ChartPainter extends CustomPainter {
         oldDelegate.selectedIndex != selectedIndex;
   }
 }
-

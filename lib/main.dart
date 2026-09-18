@@ -39,4 +39,3 @@ class LavaWeightApp extends StatelessWidget {
     );
   }
 }
-

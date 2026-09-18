@@ -27,7 +27,8 @@ class _SettingsViewState extends State<SettingsView> {
     super.initState();
     final p = widget.storage.profile;
     _nicknameController = TextEditingController(text: p.nickname);
-    _heightController = TextEditingController(text: p.heightCm.toStringAsFixed(0));
+    _heightController =
+        TextEditingController(text: p.heightCm.toStringAsFixed(0));
     _targetWeightController =
         TextEditingController(text: p.targetWeightKg.toStringAsFixed(1));
     _initialWeightController =
@@ -92,8 +93,7 @@ class _SettingsViewState extends State<SettingsView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? '数据恢复成功！' : '备份格式错误，无法导入'),
-          backgroundColor:
-              success ? LavaTheme.success : LavaTheme.lavaPink,
+          backgroundColor: success ? LavaTheme.success : LavaTheme.lavaPink,
         ),
       );
     }
@@ -291,7 +291,8 @@ class _SettingsViewState extends State<SettingsView> {
                           },
                           child: const Text(
                             '重置为示例演示数据',
-                            style: TextStyle(color: LavaTheme.lavaPeach, fontSize: 13),
+                            style: TextStyle(
+                                color: LavaTheme.lavaPeach, fontSize: 13),
                           ),
                         ),
                       ),
@@ -349,7 +350,8 @@ class _SettingsViewState extends State<SettingsView> {
           width: 100,
           child: Text(
             label,
-            style: const TextStyle(color: LavaTheme.textSecondary, fontSize: 13),
+            style:
+                const TextStyle(color: LavaTheme.textSecondary, fontSize: 13),
           ),
         ),
         Expanded(
@@ -358,11 +360,13 @@ class _SettingsViewState extends State<SettingsView> {
             decoration: BoxDecoration(
               color: LavaTheme.glassFill,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: LavaTheme.glassBorderSubtle, width: 0.8),
+              border:
+                  Border.all(color: LavaTheme.glassBorderSubtle, width: 0.8),
             ),
             child: TextField(
               controller: controller,
-              style: const TextStyle(color: LavaTheme.textPrimary, fontSize: 14),
+              style:
+                  const TextStyle(color: LavaTheme.textPrimary, fontSize: 14),
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
@@ -375,4 +379,3 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 }
-

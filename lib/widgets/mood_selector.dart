@@ -33,9 +33,7 @@ class MoodSelector extends StatelessWidget {
             duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0x52FF2A85)
-                  : LavaTheme.glassFill,
+              color: isSelected ? const Color(0x52FF2A85) : LavaTheme.glassFill,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isSelected
@@ -61,4 +59,3 @@ class MoodSelector extends StatelessWidget {
     );
   }
 }
-

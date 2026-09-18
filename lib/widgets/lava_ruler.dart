@@ -77,7 +77,8 @@ class _LavaRulerState extends State<LavaRuler> {
   }
 
   void _step(double delta) {
-    final next = (widget.currentWeight + delta).clamp(widget.minWeight, widget.maxWeight);
+    final next = (widget.currentWeight + delta)
+        .clamp(widget.minWeight, widget.maxWeight);
     final rounded = double.parse(next.toStringAsFixed(1));
     widget.onWeightChanged(rounded);
     _scrollToWeight(rounded, animate: true);
@@ -117,9 +118,11 @@ class _LavaRulerState extends State<LavaRuler> {
                             onNotification: (notification) {
                               if (notification is ScrollStartNotification) {
                                 _isUserScrolling = true;
-                              } else if (notification is ScrollUpdateNotification) {
+                              } else if (notification
+                                  is ScrollUpdateNotification) {
                                 _onScroll();
-                              } else if (notification is ScrollEndNotification) {
+                              } else if (notification
+                                  is ScrollEndNotification) {
                                 _isUserScrolling = false;
                               }
                               return true;
@@ -127,13 +130,15 @@ class _LavaRulerState extends State<LavaRuler> {
                             child: ListView.builder(
                               controller: _scrollController,
                               scrollDirection: Axis.horizontal,
-                              padding: EdgeInsets.symmetric(horizontal: halfWidth),
+                              padding:
+                                  EdgeInsets.symmetric(horizontal: halfWidth),
                               itemCount: totalTicks + 1,
                               physics: const BouncingScrollPhysics(),
                               itemBuilder: (context, index) {
                                 final isMajor = index % 10 == 0;
                                 final isMedium = index % 5 == 0;
-                                final weightVal = widget.minWeight + (index / 10.0);
+                                final weightVal =
+                                    widget.minWeight + (index / 10.0);
 
                                 return Container(
                                   width: _tickWidth,
@@ -144,7 +149,8 @@ class _LavaRulerState extends State<LavaRuler> {
                                       if (isMajor)
                                         Text(
                                           widget.useJin
-                                              ? (weightVal * 2).toStringAsFixed(0)
+                                              ? (weightVal * 2)
+                                                  .toStringAsFixed(0)
                                               : weightVal.toStringAsFixed(0),
                                           style: const TextStyle(
                                             color: LavaTheme.textMuted,
@@ -162,7 +168,8 @@ class _LavaRulerState extends State<LavaRuler> {
                                           color: isMajor
                                               ? const Color(0xB3FFFFFF)
                                               : const Color(0x40FFFFFF),
-                                          borderRadius: BorderRadius.circular(1),
+                                          borderRadius:
+                                              BorderRadius.circular(1),
                                         ),
                                       ),
                                     ],
@@ -242,4 +249,3 @@ class _LavaRulerState extends State<LavaRuler> {
     );
   }
 }
-

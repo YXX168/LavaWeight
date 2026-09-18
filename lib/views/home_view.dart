@@ -23,7 +23,8 @@ class HomeView extends StatelessWidget {
     final profile = storage.profile;
 
     final currentWeightKg = latest?.weightKg ?? profile.initialWeightKg;
-    final displayWeight = profile.useJin ? currentWeightKg * 2 : currentWeightKg;
+    final displayWeight =
+        profile.useJin ? currentWeightKg * 2 : currentWeightKg;
     final unitStr = profile.useJin ? '斤' : 'kg';
 
     final bmi = BMICalculator.calculateBMI(currentWeightKg, profile.heightCm);
@@ -95,7 +96,8 @@ class HomeView extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: LavaTheme.glassFill,
-                        border: Border.all(color: LavaTheme.glassBorder, width: 1),
+                        border:
+                            Border.all(color: LavaTheme.glassBorder, width: 1),
                       ),
                       child: const Icon(
                         Icons.person_outline,
@@ -225,7 +227,8 @@ class HomeView extends StatelessWidget {
 
                 // Quick Target & Initial Weight Row
                 GlassCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -341,4 +344,3 @@ class HomeView extends StatelessWidget {
     );
   }
 }
-

@@ -23,4 +23,3 @@ void main() {
     expect(find.text('目标体重'), findsOneWidget);
   });
 }
-

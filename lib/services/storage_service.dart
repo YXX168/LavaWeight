@@ -21,8 +21,7 @@ class StorageService extends ChangeNotifier {
 
   WeightRecord? get latestRecord => _records.isNotEmpty ? _records.first : null;
 
-  WeightRecord? get previousRecord =>
-      _records.length > 1 ? _records[1] : null;
+  WeightRecord? get previousRecord => _records.length > 1 ? _records[1] : null;
 
   double? get latestDifference {
     if (_records.length < 2) return null;
@@ -109,9 +108,24 @@ class StorageService extends ChangeNotifier {
     final now = DateTime.now();
     // 18 days of weight history leading to 68.5 kg, matching the design concept board
     final demoWeights = [
-      68.5, 68.8, 68.9, 69.1, 69.0, 69.4, 69.2,
-      69.6, 69.5, 69.8, 69.7, 70.0, 69.9, 70.2,
-      70.1, 70.4, 70.2, 70.3
+      68.5,
+      68.8,
+      68.9,
+      69.1,
+      69.0,
+      69.4,
+      69.2,
+      69.6,
+      69.5,
+      69.8,
+      69.7,
+      70.0,
+      69.9,
+      70.2,
+      70.1,
+      70.4,
+      70.2,
+      70.3
     ];
 
     _records = [];
@@ -145,12 +159,14 @@ class StorageService extends ChangeNotifier {
 
   bool importBackupJson(String jsonStr) {
     try {
-      final Map<String, dynamic> data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final Map<String, dynamic> data =
+          jsonDecode(jsonStr) as Map<String, dynamic>;
       if (data['app'] != 'LavaWeight') {
         return false;
       }
       if (data['profile'] is Map<String, dynamic>) {
-        _profile = UserProfile.fromJson(data['profile'] as Map<String, dynamic>);
+        _profile =
+            UserProfile.fromJson(data['profile'] as Map<String, dynamic>);
         _persistProfile();
       }
       if (data['records'] is List<dynamic>) {
@@ -175,4 +191,3 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 }
-

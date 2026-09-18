@@ -26,12 +26,14 @@ class _TrendsViewState extends State<TrendsView> {
     if (_selectedPeriod == 0) {
       // Past 7 days
       final threshold = now.subtract(const Duration(days: 7));
-      final filtered = all.where((r) => r.recordedAt.isAfter(threshold)).toList();
+      final filtered =
+          all.where((r) => r.recordedAt.isAfter(threshold)).toList();
       return filtered.isNotEmpty ? filtered : all.take(7).toList();
     } else if (_selectedPeriod == 1) {
       // Past 30 days
       final threshold = now.subtract(const Duration(days: 30));
-      final filtered = all.where((r) => r.recordedAt.isAfter(threshold)).toList();
+      final filtered =
+          all.where((r) => r.recordedAt.isAfter(threshold)).toList();
       return filtered.isNotEmpty ? filtered : all.take(30).toList();
     } else {
       return all;
@@ -339,7 +341,8 @@ class _TrendsViewState extends State<TrendsView> {
   }
 
   Widget _buildHistoryItem(WeightRecord record) {
-    final dateStr = DateFormat('MM月dd日 EEEE · HH:mm', 'zh_CN').format(record.recordedAt);
+    final dateStr =
+        DateFormat('MM月dd日 EEEE · HH:mm', 'zh_CN').format(record.recordedAt);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -357,7 +360,8 @@ class _TrendsViewState extends State<TrendsView> {
             children: [
               Text(
                 dateStr,
-                style: const TextStyle(color: LavaTheme.textMuted, fontSize: 12),
+                style:
+                    const TextStyle(color: LavaTheme.textMuted, fontSize: 12),
               ),
               if (record.note != null && record.note!.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -388,7 +392,8 @@ class _TrendsViewState extends State<TrendsView> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: LavaTheme.textMuted, size: 18),
+                icon: const Icon(Icons.delete_outline,
+                    color: LavaTheme.textMuted, size: 18),
                 onPressed: () => _confirmDelete(record),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -405,7 +410,8 @@ class _TrendsViewState extends State<TrendsView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: LavaTheme.backgroundAubergine,
-        title: const Text('删除记录', style: TextStyle(color: LavaTheme.textPrimary)),
+        title:
+            const Text('删除记录', style: TextStyle(color: LavaTheme.textPrimary)),
         content: Text(
           '确定删除 ${record.weightKg.toStringAsFixed(1)} kg 的这条记录吗？',
           style: const TextStyle(color: LavaTheme.textSecondary),
@@ -413,18 +419,19 @@ class _TrendsViewState extends State<TrendsView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: LavaTheme.textMuted)),
+            child:
+                const Text('取消', style: TextStyle(color: LavaTheme.textMuted)),
           ),
           TextButton(
             onPressed: () {
               widget.storage.deleteRecord(record.id);
               Navigator.pop(ctx);
             },
-            child: const Text('删除', style: TextStyle(color: LavaTheme.lavaPink)),
+            child:
+                const Text('删除', style: TextStyle(color: LavaTheme.lavaPink)),
           ),
         ],
       ),
     );
   }
 }
-

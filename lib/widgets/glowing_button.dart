@@ -44,12 +44,8 @@ class _GlowingButtonState extends State<GlowingButton> {
           width: widget.width ?? double.infinity,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.height / 2),
-            gradient: widget.isSecondary
-                ? null
-                : LavaTheme.buttonGradient,
-            color: widget.isSecondary
-                ? LavaTheme.glassFill
-                : null,
+            gradient: widget.isSecondary ? null : LavaTheme.buttonGradient,
+            color: widget.isSecondary ? LavaTheme.glassFill : null,
             border: Border.all(
               color: widget.isSecondary
                   ? LavaTheme.glassBorder
@@ -89,4 +85,3 @@ class _GlowingButtonState extends State<GlowingButton> {
     );
   }
 }
-

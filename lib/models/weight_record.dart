@@ -63,4 +63,3 @@ class WeightRecord {
   @override
   int get hashCode => id.hashCode ^ weightKg.hashCode ^ recordedAt.hashCode;
 }
-

@@ -154,7 +154,8 @@ class _RecordViewState extends State<RecordView> {
               children: [
                 // Top Action Bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -365,4 +366,3 @@ class _RecordViewState extends State<RecordView> {
     );
   }
 }
-
